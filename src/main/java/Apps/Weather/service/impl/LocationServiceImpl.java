@@ -11,12 +11,12 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class LocationServerImpl implements LocationService {
+public class LocationServiceImpl implements LocationService {
 
     private LocationRepository locationRepository;
 
     @Autowired
-    public LocationServerImpl(LocationRepository locationRepository) {}
+    public LocationServiceImpl(LocationRepository locationRepository) {}
 
     @Override
     public List<LocationDto> findAllLocations() {

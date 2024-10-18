@@ -5,12 +5,13 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.sql.Timestamp;
+import java.util.UUID;
 
 @Data
 @Builder
 public class SessionDto {
 
-    private Integer id;
+    private String id;
     private Integer userId;
     private Timestamp sessionTime;
 }
