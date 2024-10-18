@@ -10,5 +10,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public Session authenticateAndCreateSession(User user) {
 
+        return null;
     }
 }
