@@ -1,20 +1,22 @@
 package Apps.Weather.service;
 
-import Apps.Weather.customExceptions.InvalidPasswordException;
-import Apps.Weather.customExceptions.UserNotFoundException;
+import Apps.Weather.customExceptions.InvalidCredentialsException;
+import Apps.Weather.customExceptions.UserAlreadyExistsException;
 import Apps.Weather.dto.UserDto;
 import Apps.Weather.models.User;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface UserService {
+
     List<UserDto> findAllUsers();
 
-    User saveUser(User user);
+    User saveUser(User user) throws UserAlreadyExistsException;
 
-    User findBylogin(String login) throws UserNotFoundException;
+    Optional<User> findBylogin(String login);
 
-    boolean isLoginUnique(User user);
+    Optional<User> findById(Integer id);
 
-    boolean checkPassword(String firstPassword, String secondPassword) throws InvalidPasswordException;
+    boolean checkPassword(String rawPassword, String encodedPassword);
 }

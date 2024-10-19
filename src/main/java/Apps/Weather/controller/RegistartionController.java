@@ -1,5 +1,7 @@
 package Apps.Weather.controller;
 
+import Apps.Weather.customExceptions.InvalidCredentialsException;
+import Apps.Weather.customExceptions.UserAlreadyExistsException;
 import Apps.Weather.models.User;
 import Apps.Weather.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,12 +30,12 @@ public class RegistartionController {
     @PostMapping("/register")
     public String createUser(@ModelAttribute("user") User user, Model model){
 
-        if (userService.isLoginUnique(user)){
-
+        try {
             userService.saveUser(user);
             return "redirect:/login";
-        }else {
-            model.addAttribute("errorMessage", "Username or password are already taken!");
+
+        }catch (UserAlreadyExistsException e){
+            model.addAttribute("errorMessage", e.getMessage());
             return "registration-page";
         }
     }

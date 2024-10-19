@@ -1,9 +1,9 @@
 package Apps.Weather.service;
 
-import Apps.Weather.customExceptions.CookieNotFoundException;
-import Apps.Weather.customExceptions.SessionNotFoundException;
 import jakarta.servlet.http.Cookie;
 
+import java.util.Optional;
+
 public interface CookieService {
-    Cookie getSessionCookie(Cookie[] cookies) throws CookieNotFoundException;
+    Optional<Cookie> getSessionCookie(Cookie[] cookies);
 }

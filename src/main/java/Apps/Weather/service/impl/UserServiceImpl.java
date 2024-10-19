@@ -1,7 +1,7 @@
 package Apps.Weather.service.impl;
 
-import Apps.Weather.customExceptions.InvalidPasswordException;
-import Apps.Weather.customExceptions.UserNotFoundException;
+import Apps.Weather.customExceptions.InvalidCredentialsException;
+import Apps.Weather.customExceptions.UserAlreadyExistsException;
 import Apps.Weather.dto.UserDto;
 import Apps.Weather.models.User;
 import Apps.Weather.repository.UserRepository;
@@ -11,6 +11,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,46 +31,37 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User saveUser(User user) {
-        User saveUser = new User();
-        saveUser.setLogin(user.getLogin());
-        saveUser.setPassword(hashPassword(user.getPassword()));
-        return userRepository.save(saveUser);
-    }
+    public User saveUser(User user) throws UserAlreadyExistsException{
+        Optional<User> existingUser = findBylogin(user.getLogin());
 
-    @Override
-    public User findBylogin(String login) throws UserNotFoundException {
-        User bylogin = userRepository.findBylogin(login);
-
-        if (bylogin == null) {
-            throw new UserNotFoundException();
+        if (existingUser.isPresent()) {
+            throw new UserAlreadyExistsException("A user with this login already exists.");
         }
 
-        return bylogin;
+        user.setPassword(hashPassword(user.getPassword()));
+        return userRepository.save(user);
     }
 
     @Override
-    public boolean isLoginUnique(User user) {
-        user = userRepository.findBylogin(user.getLogin());
-        return user == null;
+    public Optional<User> findBylogin(String login){
+        return userRepository.findBylogin(login);
     }
 
     @Override
-    public boolean checkPassword(String firstPassword, String secondPassword) throws InvalidPasswordException {
-        boolean matches = new BCryptPasswordEncoder().matches(firstPassword, secondPassword);
-        if (matches) {
-            return true;
-        }else {
-            throw new InvalidPasswordException();
-        }
+    public Optional<User> findById(Integer id) {
+        return userRepository.findById(id);
+    }
+
+    @Override
+    public boolean checkPassword(String rawPassword, String encodedPassword){
+        return new BCryptPasswordEncoder().matches(rawPassword, encodedPassword);
     }
 
     private UserDto mapToUserDto(User user) {
-        UserDto userDto = UserDto.builder()
+        return UserDto.builder()
                 .id(user.getId())
                 .login(user.getLogin())
                 .build();
-        return userDto;
     }
 
     private String hashPassword(String password) {

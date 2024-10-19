@@ -1,11 +1,11 @@
 package Apps.Weather.controller;
 
-import Apps.Weather.customExceptions.InvalidPasswordException;
-import Apps.Weather.customExceptions.SessionNotFoundException;
+import Apps.Weather.customExceptions.InvalidCredentialsException;
 import Apps.Weather.customExceptions.UserNotFoundException;
 import Apps.Weather.models.Session;
 import Apps.Weather.models.User;
 import Apps.Weather.repository.SessionRepository;
+import Apps.Weather.service.AuthService;
 import Apps.Weather.service.CookieService;
 import Apps.Weather.service.SessionService;
 import Apps.Weather.service.UserService;
@@ -16,26 +16,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.Mapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 
-import java.util.UUID;
+import java.util.Optional;
 
 @Controller
 public class LoginController {
 
-    private final SessionRepository sessionRepository;
-    private UserService userService;
-    private SessionService sessionService;
+    private AuthService authService;
     private CookieService cookieService;
 
     @Autowired
-    public LoginController(UserService userService, SessionService sessionService, CookieService cookieService, SessionRepository sessionRepository) {
-        this.userService = userService;
-        this.sessionService = sessionService;
+    public LoginController(AuthService authService, CookieService cookieService) {
+        this.authService = authService;
         this.cookieService = cookieService;
-        this.sessionRepository = sessionRepository;
     }
 
     @GetMapping("/login")
@@ -46,38 +41,20 @@ public class LoginController {
 
     @PostMapping("/login")
     public String processLogin(@ModelAttribute("user") User userForm, Model model, HttpServletResponse response){
-
         try {
-            // Find user by login
-            User foundUser = userService.findBylogin(userForm.getLogin());
+            // Authenticate and create session
+            Session session = authService.authenticateAndCreateSession(userForm);
 
-            // Check password correctness
-            if (!userService.checkPassword(userForm.getPassword(), foundUser.getPassword())) {
-                throw new InvalidPasswordException();
-            }
-
-            // Check if session exists for the user
-            Session session = sessionService.findSessionByUser(foundUser);
-
-            if (session == null) {
-                // Create a new session if not found
-                session = sessionService.createSessionForUser(foundUser);
-            }
-
-            // Add session ID to a cookie
-            Cookie cookie = new Cookie("sessionId", session.getId().toString());
-            cookie.setHttpOnly(true);
-            cookie.setPath("/");
-            response.addCookie(cookie);
+            // Set session ID in a secure cookie
+            Cookie sessionCookie = new Cookie("sessionId", session.getId().toString());
+            sessionCookie.setHttpOnly(true);
+            sessionCookie.setPath("/");
+            sessionCookie.setMaxAge(2 * 60 * 60); // Session lasts 2 hours
+            response.addCookie(sessionCookie);
 
             // Redirect to dashboard
             return "redirect:/dashboard";
-
-        } catch (UserNotFoundException e) {
-            model.addAttribute("errorMessage", "User not found");
-            return "login-page";
-
-        } catch (InvalidPasswordException e) {
+        }catch (UserNotFoundException | InvalidCredentialsException e){
             model.addAttribute("errorMessage", e.getMessage());
             return "login-page";
         }
@@ -86,19 +63,18 @@ public class LoginController {
     @GetMapping("/logout")
     public String processLogout(HttpServletRequest request, HttpServletResponse response){
 
-        try{
-            Cookie sessionCookie = cookieService.getSessionCookie(request.getCookies());
-            sessionService.deleteById(UUID.fromString(sessionCookie.getValue()));
+        Optional<Cookie> sessionCookie = cookieService.getSessionCookie(request.getCookies());
+
+        if(sessionCookie.isPresent()){
+
+            authService.logout(sessionCookie.get());
 
             Cookie cookie = new Cookie("sessionId", null);
             cookie.setMaxAge(0);
             response.addCookie(cookie);
-
-            return "redirect:/dashboard";
-        } catch (SessionNotFoundException e) {
-            return "redirect:/dashboard";
         }
 
+        return "redirect:/dashboard";
     }
 
 
