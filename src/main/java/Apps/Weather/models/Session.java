@@ -30,12 +30,12 @@ public class Session {
     private User user;
 
     @Column(name = "expires_at", nullable = false)
-    private Timestamp sessionTime;
+    private Timestamp expiresAt;
 
-    public Session(User user, Timestamp sessionTime) {
+    public Session(User user, Timestamp expiresAt) {
         this.id = null;
         this.user = user;
-        this.sessionTime = sessionTime;
+        this.expiresAt = expiresAt;
     }
 
 

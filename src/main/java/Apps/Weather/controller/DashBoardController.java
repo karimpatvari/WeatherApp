@@ -1,40 +1,31 @@
 package Apps.Weather.controller;
 
-import Apps.Weather.customExceptions.UserNotFoundException;
+import Apps.Weather.Json.GeoResponse;
+import Apps.Weather.Json.WeatherResponse;
+import Apps.Weather.customExceptions.*;
+import Apps.Weather.models.Location;
 import Apps.Weather.models.Session;
 import Apps.Weather.models.User;
-import Apps.Weather.repository.SessionRepository;
-import Apps.Weather.service.AuthService;
-import Apps.Weather.service.CookieService;
-import Apps.Weather.service.SessionService;
-import Apps.Weather.service.UserService;
-import jakarta.servlet.http.Cookie;
+import Apps.Weather.service.*;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
-import java.sql.Timestamp;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.List;
 
 @Controller
 public class DashBoardController {
 
-    private final SessionRepository sessionRepository;
-    private UserService userService;
-    private CookieService cookieService;
-    private SessionService sessionService;
-    private AuthService authService;
+    private final AuthService authService;
+    private final OpenWeatherService openWeatherService;
 
     @Autowired
-    public DashBoardController(SessionRepository sessionRepository, UserService userService, CookieService cookieService, SessionService sessionService, AuthService authService) {
-        this.sessionRepository = sessionRepository;
-        this.userService = userService;
-        this.cookieService = cookieService;
-        this.sessionService = sessionService;
+    public DashBoardController(AuthService authService, OpenWeatherService openWeatherService) {
         this.authService = authService;
+        this.openWeatherService = openWeatherService;
     }
 
     @GetMapping("/")
@@ -45,18 +36,55 @@ public class DashBoardController {
     @GetMapping("/dashboard")
     public String dashboard(Model model, HttpServletRequest request) {
 
-        // process the cookie from the request
-        Optional<User> userOptional = authService.processCookieAndGetUser(request.getCookies());
+        try {
+            // process the cookie from the request
+            Session session = authService.AuthenticateGetSession(request.getCookies());
+            User user = session.getUser();
 
-        userOptional.ifPresentOrElse(user -> {
             model.addAttribute("login", user.getLogin());
             model.addAttribute("isLoggedIn", true);
-            },
-                () -> model.addAttribute("isLoggedIn", false)
-        );
 
-        // Always return the dashboard view
+            List<WeatherResponse> WeatherResponsesList = openWeatherService.getWeatherForUser(user);
+
+            model.addAttribute("weatherResponsesList", WeatherResponsesList);
+
+        } catch (SessionExpiredException e) {
+            model.addAttribute("isLoggedIn", false);
+
+        } catch (WeatherRateLimitException | WeatherServiceException | WeatherNotFoundException e) {
+            model.addAttribute("isLoggedIn", true);
+            model.addAttribute("error", "An error occurred while loading the weather data. Please try again.");
+
+        } catch (Exception e){
+            model.addAttribute("error", "An internal server error occurred while loading the dashboard. Please try again.");
+
+        }
+
         return "dashboard";
-
     }
+
+    @GetMapping("/search")
+    public String showResultsForm(@RequestParam String locationStr, Model model, HttpServletRequest request) {
+
+        try {
+            // process the cookie from the request
+            Session session = authService.AuthenticateGetSession(request.getCookies());
+            User user = session.getUser();
+
+            List<GeoResponse> listOfGeoResponses = openWeatherService.getListOfGeoResponsesByLocName(locationStr);
+            model.addAttribute("listOfGeoResponses", listOfGeoResponses);
+            model.addAttribute("login", user.getLogin());
+
+            return "results-page";
+
+        } catch (SessionExpiredException e) {
+            model.addAttribute("isLoggedIn", false);
+            return "dashboard";
+        } catch (WeatherServiceException e) {
+            model.addAttribute("error", e.getMessage());
+            return "error-page";
+        }
+    }
+
+
 }

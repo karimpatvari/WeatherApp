@@ -63,12 +63,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- WebClient для асинхронных запросов -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webflux</artifactId>
-        </dependency>
-
         <!-- Spring Test для тестирования -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -110,6 +104,28 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId> <!-- If you are testing security -->
             <scope>test</scope>
+        </dependency>
+
+        <!-- Jackson for parsing json to java object -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.2</version>
+        </dependency>
+
+        <!-- Spring just asked me to add that dependency -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-resolver-dns-native-macos</artifactId>
+            <version>${netty.version}</version>
+            <classifier>osx-x86_64</classifier>
+        </dependency>
+
+        <!-- Mockito for testing -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.14.2</version>
         </dependency>
 
     </dependencies>

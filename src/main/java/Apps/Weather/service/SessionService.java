@@ -10,11 +10,7 @@ import java.util.UUID;
 
 public interface SessionService {
 
-    Session save(Session session);
-
     Session createForUser(User user);
-
-    List<SessionDto> findAll();
 
     Optional<Session> findById(UUID sessionId);
 

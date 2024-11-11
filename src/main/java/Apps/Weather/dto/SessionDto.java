@@ -7,11 +7,14 @@ import lombok.*;
 import java.sql.Timestamp;
 import java.util.UUID;
 
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class SessionDto {
 
     private String id;
     private Integer userId;
-    private Timestamp sessionTime;
+    private Timestamp expiresAt;
 }

@@ -21,14 +21,10 @@ import java.util.stream.Collectors;
 public class SessionServiceImpl implements SessionService {
 
     private SessionRepository sessionRepository;
+
     @Autowired
     public SessionServiceImpl(SessionRepository sessionRepository) {
         this.sessionRepository = sessionRepository;
-    }
-
-    @Override
-    public Session save(Session session) {
-        return sessionRepository.save(session);
     }
 
     @Override
@@ -36,21 +32,13 @@ public class SessionServiceImpl implements SessionService {
         // Check if a session already exists for the user
         Optional<Session> existingSession = sessionRepository.findByUser(user);
 
-        if (existingSession.isPresent()) {
-            // Delete the old session
-            sessionRepository.delete(existingSession.get());
-        }
+        // Delete the old session
+        existingSession.ifPresent(session -> sessionRepository.delete(session));
 
         Session session = new Session();
         session.setUser(user);
-        session.setSessionTime(Timestamp.valueOf(LocalDateTime.now().plusHours(2)));
+        session.setExpiresAt(Timestamp.valueOf(LocalDateTime.now().plusHours(2)));
         return sessionRepository.save(session);
-    }
-
-    @Override
-    public List<SessionDto> findAll() {
-        List<Session> sessions = sessionRepository.findAll();
-        return sessions.stream().map((session) -> mapSessionToSessionDto(session)).collect(Collectors.toList());
     }
 
     @Override
@@ -68,18 +56,16 @@ public class SessionServiceImpl implements SessionService {
         sessionRepository.delete(session);
     }
 
-    @Transactional
-    @Override
-    @Scheduled(fixedRate = 3600000)
+    @Scheduled(fixedRate = 3600000) @Override
     public void cleanExpiredSessions() {
-        sessionRepository.deleteAllBySessionTimeBefore(LocalDateTime.now());
+        sessionRepository.deleteAllByExpiresAtBefore(Timestamp.valueOf(LocalDateTime.now()));
     }
 
     private SessionDto mapSessionToSessionDto(Session session) {
         SessionDto sessionDto = SessionDto.builder()
                 .id(String.valueOf(session.getId()))
                 .userId(session.getUser().getId())
-                .sessionTime(session.getSessionTime())
+                .expiresAt(session.getExpiresAt())
                 .build();
         return sessionDto;
     }

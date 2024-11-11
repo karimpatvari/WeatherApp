@@ -1,31 +1,32 @@
 package Apps.Weather.service.impl;
 
 import Apps.Weather.customExceptions.InvalidCredentialsException;
+import Apps.Weather.customExceptions.SessionExpiredException;
 import Apps.Weather.customExceptions.UserNotFoundException;
 import Apps.Weather.models.Session;
 import Apps.Weather.models.User;
-import Apps.Weather.repository.UserRepository;
 import Apps.Weather.service.AuthService;
-import Apps.Weather.service.CookieService;
 import Apps.Weather.service.SessionService;
 import Apps.Weather.service.UserService;
 import jakarta.servlet.http.Cookie;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class AuthServiceImpl implements AuthService {
 
-    private CookieService cookieService;
     private UserService userService;
     private SessionService sessionService;
 
     @Autowired
-    public AuthServiceImpl(CookieService cookieService, UserService userService, SessionService sessionService) {
-        this.cookieService = cookieService;
+    public AuthServiceImpl(UserService userService, SessionService sessionService) {
         this.userService = userService;
         this.sessionService = sessionService;
     }
@@ -36,7 +37,7 @@ public class AuthServiceImpl implements AuthService {
         User existingUser = userService.findBylogin(userForm.getLogin())
                 .orElseThrow(() -> new UserNotFoundException("User with login " + userForm.getLogin() + " not found"));
 
-        if (!userService.checkPassword(userForm.getPassword(), existingUser.getPassword())) {
+        if (!checkPassword(userForm.getPassword(), existingUser.getPassword())) {
             throw new InvalidCredentialsException("Wrong password");
         }
 
@@ -44,35 +45,58 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void logout(Cookie sessionCookie) {
-        Optional<Session> byId = sessionService.findById(UUID.fromString(sessionCookie.getValue()));
+    public Cookie logout(Cookie[] cookieArray) {
 
-        if (byId.isPresent()) {
-            sessionService.delete(byId.get());
-        }
+        getSessionCookie(cookieArray).ifPresent(cookie -> {
+                    sessionService.findById(UUID.fromString(cookie.getValue()))
+                            .ifPresent(session -> sessionService.delete(session));
+                }
+        );
+
+        Cookie cookie = new Cookie("sessionId", null);
+        cookie.setMaxAge(0);
+        return cookie;
+
     }
 
     @Override
-    public Optional<User> processCookieAndGetUser(Cookie[] cookieArray) {
+    public Session AuthenticateGetSession(Cookie[] cookieArray) throws SessionExpiredException {
 
-        Optional<Cookie> cookieOptional = cookieService.getSessionCookie(cookieArray);
+        Cookie cookie = getSessionCookie(cookieArray).orElseThrow(() -> new SessionExpiredException("Your session expired"));
 
-        if (cookieOptional.isPresent()) {
-            Cookie cookie = cookieOptional.get();
-            Optional<Session> sessionOptional = sessionService.findById(UUID.fromString(cookie.getValue()));
+        UUID sessionId = UUID.fromString(cookie.getValue());
+        return checkSession(sessionId);
 
-            if (sessionOptional.isPresent()) {
-                Session session = sessionOptional.get();
-                Optional<User> userOptional = userService.findById(session.getUser().getId());
-
-                if (userOptional.isPresent()) {
-                    return userOptional;
-                }
-            }
-        }
-
-        return Optional.empty();
     }
 
+    private Session checkSession(UUID sessionId) throws SessionExpiredException {
+
+        Session session = sessionService.findById(sessionId).orElseThrow(
+                () -> new SessionExpiredException("Your session expired"));
+
+        Timestamp expiresAt = session.getExpiresAt();
+        Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+
+        if (now.after(expiresAt)) {
+            sessionService.delete(session);
+            throw new SessionExpiredException("Your session expired");
+        }
+
+        return session;
+    }
+
+    private boolean checkPassword(String rawPassword, String encodedPassword) {
+        return new BCryptPasswordEncoder().matches(rawPassword, encodedPassword);
+    }
+
+    private Optional<Cookie> getSessionCookie(Cookie[] cookies) {
+        if (cookies == null) {
+            return Optional.empty();
+        }
+
+        return Arrays.stream(cookies)
+                .filter(cookie -> "sessionId".equals(cookie.getName()))
+                .findFirst();
+    }
 
 }

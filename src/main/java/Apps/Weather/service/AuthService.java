@@ -1,15 +1,18 @@
 package Apps.Weather.service;
 
+import Apps.Weather.customExceptions.InvalidCredentialsException;
+import Apps.Weather.customExceptions.SessionExpiredException;
+import Apps.Weather.customExceptions.UserNotFoundException;
 import Apps.Weather.models.Session;
 import Apps.Weather.models.User;
 import jakarta.servlet.http.Cookie;
 
-import java.util.Optional;
-
 public interface AuthService {
-    Session authenticateAndCreateSession(User user);
 
-    void logout(Cookie sessionCookie);
+    Session authenticateAndCreateSession(User user) throws UserNotFoundException, InvalidCredentialsException;
 
-    Optional<User> processCookieAndGetUser(Cookie[] cookieArray);
+    Cookie logout(Cookie[] cookieArray);
+
+    Session AuthenticateGetSession(Cookie[] cookieArray) throws SessionExpiredException;
+
 }

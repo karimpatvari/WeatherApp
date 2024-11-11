@@ -4,7 +4,10 @@ import Apps.Weather.models.User;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class LocationDto{
 

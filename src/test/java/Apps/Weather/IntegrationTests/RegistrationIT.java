@@ -45,7 +45,7 @@ public class RegistrationIT {
     @Test
     public void testNotUniqueLoginThrowsException() throws Exception {
 
-        userService.saveUser(new User("existingUser", "newPassword"));
+        userService.validateAndSaveUser(new User("existingUser", "newPassword"));
 
         // Now perform the registration request with the same login
         mockMvc.perform(post("/register")
