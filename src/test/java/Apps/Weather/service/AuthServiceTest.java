@@ -40,6 +40,8 @@ class AuthServiceTest {
     @Autowired
     private UserRepository userRepository;
 
+    private final BCryptPasswordEncoder passwordEncoder  = new BCryptPasswordEncoder();
+
     @AfterEach
     void tearDown() {
         sessionRepository.deleteAll();
@@ -47,7 +49,7 @@ class AuthServiceTest {
     }
 
     @Test
-    void successfulAuthAndSessionCreation() throws UserAlreadyExistsException, UserNotFoundException, InvalidCredentialsException {
+    void authenticateAndCreateSession_Success() throws UserAlreadyExistsException, UserNotFoundException, InvalidCredentialsException {
 
         User hashedUser = userService.validateAndSaveUser(new User("username", "password"));
         User user = new User("username", "password");
@@ -64,22 +66,20 @@ class AuthServiceTest {
     }
 
     @Test
-    void throwsExceptionWhenWrongCredentials() throws UserAlreadyExistsException {
-        User hashedUser = userService.validateAndSaveUser(new User("username", "password"));
+    void authenticateAndCreateSession_ThrowsInvalidCredentialsException() throws UserAlreadyExistsException {
+        userService.validateAndSaveUser(new User("username", "password"));
         User user = new User("username", "wrongPassword");
 
         assertThrows(InvalidCredentialsException.class, () -> authService.authenticateAndCreateSession(user));
     }
 
     @Test
-    void throwsExceptionWhenUserNotFound() {
-        User hashedUser = new User("username", "password");
-
-        assertThrows(UserNotFoundException.class, () -> authService.authenticateAndCreateSession(hashedUser));
+    void authenticateAndCreateSession_ThrowsUserNotFoundException() {
+        assertThrows(UserNotFoundException.class, () -> authService.authenticateAndCreateSession(new User()));
     }
 
     @Test
-    void deleteSessionAndReturnsCookieWhenLogout() throws UserAlreadyExistsException, UserNotFoundException, InvalidCredentialsException {
+    void logout_DeletesSessionAndReturnsExpiredCookie() throws UserAlreadyExistsException, UserNotFoundException, InvalidCredentialsException {
         User hashedUser = userService.validateAndSaveUser(new User("username", "password"));
         User user = new User("username", "password");
         authService.authenticateAndCreateSession(user);
@@ -89,12 +89,16 @@ class AuthServiceTest {
         Cookie[] cookies = new Cookie[1];
         cookies[0] = new Cookie("sessionId", sessionOptional.get().getId().toString());
 
-        assertInstanceOf(Cookie.class, authService.logout(cookies));
+        Cookie logoutCookie = authService.logout(cookies);
+
+        assertInstanceOf(Cookie.class, logoutCookie);
+        assertNull(logoutCookie.getValue());
+        assertEquals(0, logoutCookie.getMaxAge());
         assertTrue(sessionRepository.findAll().isEmpty());
     }
 
     private boolean checkPassword(String rawPassword, String encodedPassword) {
-        return new BCryptPasswordEncoder().matches(rawPassword, encodedPassword);
+        return passwordEncoder.matches(rawPassword, encodedPassword);
     }
 
 

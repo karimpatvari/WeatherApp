@@ -1,6 +1,6 @@
 package Apps.Weather.customExceptions;
 
-public class WeatherNotFoundException extends Exception {
+public class WeatherNotFoundException extends WeatherServiceException {
     public WeatherNotFoundException() {
         super();
     }

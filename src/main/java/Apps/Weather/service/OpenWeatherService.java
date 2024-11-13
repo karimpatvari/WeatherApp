@@ -7,6 +7,7 @@ import Apps.Weather.models.Location;
 import Apps.Weather.models.User;
 import org.apache.coyote.BadRequestException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,5 +17,5 @@ public interface OpenWeatherService {
 
     List<GeoResponse> getListOfGeoResponsesByLocName(String locationName) throws WeatherServiceException;
 
-    List<WeatherResponse> getWeatherForUser(User user) throws WeatherServiceException, WeatherNotFoundException, WeatherRateLimitException;
+    List<WeatherResponse> getWeatherByListOfLocations(List<Location> allLocationsByUser) throws WeatherServiceException;
 }

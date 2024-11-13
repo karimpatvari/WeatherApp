@@ -1,6 +1,6 @@
 package Apps.Weather.customExceptions;
 
-public class WeatherRateLimitException extends Exception{
+public class WeatherRateLimitException extends WeatherServiceException{
     public WeatherRateLimitException() {
         super();
     }

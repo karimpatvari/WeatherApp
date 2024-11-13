@@ -27,24 +27,24 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static org.springframework.http.HttpStatus.*;
+
 @Service
 public class OpenWeatherServiceImpl implements OpenWeatherService {
 
     private static ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
     private final String apiKey;
-    private final LocationService locationService;
 
     @Autowired
-    public OpenWeatherServiceImpl(RestTemplate restTemplate, @Value("${openweather.api.key}") String apiKey, LocationService locationService) {
+    public OpenWeatherServiceImpl(RestTemplate restTemplate, @Value("${openweather.api.key}") String apiKey) {
         this.restTemplate = restTemplate;
         this.apiKey = apiKey;
         objectMapper = new ObjectMapper();
-        this.locationService = locationService;
     }
 
     @Override
-    public WeatherResponse getWeatherByCoordinates(double latitude, double longitude, Optional<String> units) throws WeatherServiceException, WeatherNotFoundException, WeatherRateLimitException {
+    public WeatherResponse getWeatherByCoordinates(double latitude, double longitude, Optional<String> units) throws WeatherServiceException {
 
         // Validate coordinates to ensure they are within acceptable ranges
         validateCoordinates(latitude, longitude);
@@ -64,36 +64,21 @@ public class OpenWeatherServiceImpl implements OpenWeatherService {
             ResponseEntity<String> responseEntity = restTemplate.getForEntity(uri, String.class);
 
             // Check if the response is successful and contains a body
-            if (!responseEntity.getStatusCode().is2xxSuccessful() || responseEntity.getBody() == null) {
-                throw new WeatherNotFoundException("Weather for this latitude and longitude not found. Please check the input.");
+            if (responseEntity.getBody() == null) {
+                throw new HttpServerErrorException(NOT_FOUND);
             }
 
             // Parse the JSON response into a WeatherResponse object
             return objectMapper.readValue(responseEntity.getBody(), WeatherResponse.class);
 
-        } catch (HttpClientErrorException.Unauthorized e) {
-            throw new WeatherServiceException("Unauthorized request: Please check your API key.");
-
-        } catch (HttpClientErrorException.Forbidden e) {
-            throw new WeatherServiceException("Access denied: You may be exceeding your subscription limits.");
-
-        } catch (HttpClientErrorException.NotFound e) {
-            throw new WeatherNotFoundException("Weather for this latitude and longitude not found. Please check the input.");
-
-        } catch (HttpClientErrorException.TooManyRequests e) {
-            throw new WeatherRateLimitException("Rate limit exceeded. Please try again later.");
-
         } catch (HttpServerErrorException e) {
             throw new WeatherServiceException("OpenWeather API server error: " + e.getStatusCode());
-
         } catch (HttpClientErrorException e) {
-            throw new WeatherServiceException("HTTP error while fetching weather data: " + e.getStatusCode());
-
+            throw handleHttpClientErrorException(e);
         } catch (JsonProcessingException e) {
-            throw new WeatherServiceException("Error processing weather data" + e.getMessage());
-
+            throw new WeatherServiceException("Error processing weather data: " + e.getMessage());
         } catch (Exception e) {
-            throw new WeatherServiceException("An unexpected error occurred" + e.getMessage());
+            throw new WeatherServiceException("An unexpected error occurred: " + e.getMessage());
         }
     }
 
@@ -119,28 +104,16 @@ public class OpenWeatherServiceImpl implements OpenWeatherService {
     }
 
     @Override
-    public List<WeatherResponse> getWeatherForUser(User user) throws WeatherServiceException, WeatherNotFoundException, WeatherRateLimitException {
-        List<Location> allLocationsByUser = locationService.findAllLocationsByUser(user);
-        return getWeatherByListOfLocations(allLocationsByUser);
-    }
-
-    private List<WeatherResponse> getWeatherByListOfLocations(List<Location> allLocationsByUser) throws WeatherRateLimitException, WeatherNotFoundException, WeatherServiceException {
+    public List<WeatherResponse> getWeatherByListOfLocations(List<Location> allLocationsByUser) throws WeatherServiceException {
 
         List<WeatherResponse> weatherResponses = new ArrayList<>();
 
         for (Location location : allLocationsByUser) {
-            WeatherResponse weatherByCoordinates = null;
-
-            try{
-                weatherByCoordinates = getWeatherByCoordinates(location.getLatitude(), location.getLongitude(), Optional.of("metric"));
-            } catch (Exception e){
-                throw e;
-            }
+            WeatherResponse weatherByCoordinates = getWeatherByCoordinates(location.getLatitude(), location.getLongitude(), Optional.of("metric"));
 
             weatherByCoordinates.setLocationId(location.getId());
             weatherByCoordinates.setName(location.getName());
             weatherResponses.add(weatherByCoordinates);
-
         }
 
         return weatherResponses;
@@ -152,6 +125,14 @@ public class OpenWeatherServiceImpl implements OpenWeatherService {
         }
     }
 
-
+    private WeatherServiceException handleHttpClientErrorException(HttpClientErrorException e) {
+        switch (e.getStatusCode()) {
+            case UNAUTHORIZED: return new WeatherServiceException("Unauthorized request: Please check your API key.");
+            case FORBIDDEN: return new WeatherServiceException("Access denied: You may be exceeding your subscription limits.");
+            case NOT_FOUND: return new WeatherNotFoundException("Weather for this latitude and longitude not found. Please check the input.");
+            case TOO_MANY_REQUESTS: return new WeatherRateLimitException("Rate limit exceeded. Please try again later.");
+            default: return new WeatherServiceException("HTTP error while fetching weather data: " + e.getStatusCode());
+        }
+    }
 
 }

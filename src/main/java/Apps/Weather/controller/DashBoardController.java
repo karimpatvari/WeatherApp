@@ -21,11 +21,13 @@ public class DashBoardController {
 
     private final AuthService authService;
     private final OpenWeatherService openWeatherService;
+    private final LocationService locationService;
 
     @Autowired
-    public DashBoardController(AuthService authService, OpenWeatherService openWeatherService) {
+    public DashBoardController(AuthService authService, OpenWeatherService openWeatherService, LocationService locationService) {
         this.authService = authService;
         this.openWeatherService = openWeatherService;
+        this.locationService = locationService;
     }
 
     @GetMapping("/")
@@ -44,14 +46,16 @@ public class DashBoardController {
             model.addAttribute("login", user.getLogin());
             model.addAttribute("isLoggedIn", true);
 
-            List<WeatherResponse> WeatherResponsesList = openWeatherService.getWeatherForUser(user);
+            List<Location> allLocationsByUser = locationService.findAllLocationsByUser(user);
+            List<WeatherResponse> WeatherResponsesList = openWeatherService.getWeatherByListOfLocations(allLocationsByUser);
 
             model.addAttribute("weatherResponsesList", WeatherResponsesList);
 
         } catch (SessionExpiredException e) {
             model.addAttribute("isLoggedIn", false);
 
-        } catch (WeatherRateLimitException | WeatherServiceException | WeatherNotFoundException e) {
+
+        } catch (WeatherServiceException e) {
             model.addAttribute("isLoggedIn", true);
             model.addAttribute("error", "An error occurred while loading the weather data. Please try again.");
 
@@ -62,29 +66,5 @@ public class DashBoardController {
 
         return "dashboard";
     }
-
-    @GetMapping("/search")
-    public String showResultsForm(@RequestParam String locationStr, Model model, HttpServletRequest request) {
-
-        try {
-            // process the cookie from the request
-            Session session = authService.AuthenticateGetSession(request.getCookies());
-            User user = session.getUser();
-
-            List<GeoResponse> listOfGeoResponses = openWeatherService.getListOfGeoResponsesByLocName(locationStr);
-            model.addAttribute("listOfGeoResponses", listOfGeoResponses);
-            model.addAttribute("login", user.getLogin());
-
-            return "results-page";
-
-        } catch (SessionExpiredException e) {
-            model.addAttribute("isLoggedIn", false);
-            return "dashboard";
-        } catch (WeatherServiceException e) {
-            model.addAttribute("error", e.getMessage());
-            return "error-page";
-        }
-    }
-
 
 }
